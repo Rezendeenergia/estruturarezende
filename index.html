@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Rezende Energia — Mapa Operacional</title>
+
+<!-- Leaflet -->
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+  crossorigin=""
+/>
+<script
+  src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+  crossorigin=""
+></script>
+
+<style>
+  :root {
+    --primary: #1B3A6B;
+    --primary-dark: #142d54;
+    --primary-light: #2E6DA4;
+    --accent: #4A90D9;
+    --success: #1B7A3E;
+    --danger: #C0392B;
+    --warning: #F39C12;
+    --purple: #8E44AD;
+    --teal: #16A085;
+    --gray: #7F8C8D;
+    --text: #2C3E50;
+    --bg: #F4F6F9;
+    --card: #FFFFFF;
+    --border: #E1E5EB;
+    --muted: #6B7280;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Header ─────────────────────────────────────── */
+  .header {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+    color: white;
+    padding: 22px 32px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .header-title h1 {
+    font-size: 22px;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+  }
+  .header-title p {
+    font-size: 13px;
+    opacity: 0.85;
+    font-weight: 300;
+  }
+  .header-meta {
+    font-size: 12px;
+    opacity: 0.9;
+    text-align: right;
+    line-height: 1.5;
+  }
+  .header-meta strong { font-weight: 600; }
+
+  /* ── Tabs ──────────────────────────────────────── */
+  .tabs {
+    background: white;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    padding: 0 32px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    overflow-x: auto;
+  }
+  .tab {
+    padding: 16px 22px;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    color: var(--muted);
+    font-weight: 500;
+    font-size: 14px;
+    transition: all 0.2s;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .tab:hover {
+    color: var(--primary);
+    background: rgba(27,58,107,0.04);
+  }
+  .tab.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+    font-weight: 600;
+  }
+  .tab-count {
+    background: var(--bg);
+    color: var(--muted);
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .tab.active .tab-count {
+    background: var(--primary);
+    color: white;
+  }
+
+  /* ── Main ──────────────────────────────────────── */
+  .main {
+    flex: 1;
+    display: flex;
+    padding: 24px 32px;
+    gap: 24px;
+    min-height: 0;
+  }
+
+  .map-container {
+    flex: 1 1 auto;
+    background: var(--card);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    position: relative;
+    min-height: 620px;
+  }
+  #map { width: 100%; height: 100%; min-height: 620px; }
+
+  /* ── Sidebar ───────────────────────────────────── */
+  .sidebar {
+    width: 340px;
+    flex-shrink: 0;
+    background: var(--card);
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    max-height: calc(100vh - 200px);
+  }
+  .sidebar-header {
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(180deg, #FAFBFC 0%, #F4F6F9 100%);
+  }
+  .sidebar-header h2 {
+    font-size: 15px;
+    color: var(--primary);
+    margin-bottom: 4px;
+  }
+  .sidebar-header p {
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .search-box {
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .search-box input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 13px;
+    outline: none;
+    transition: border 0.2s;
+  }
+  .search-box input:focus { border-color: var(--primary); }
+
+  .legend {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    background: #FAFBFC;
+  }
+  .legend h3 {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 10px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 0;
+    font-size: 13px;
+  }
+  .legend-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid white;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.15);
+    flex-shrink: 0;
+  }
+
+  .list {
+    flex: 1;
+    overflow-y: auto;
+  }
+  .list-item {
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    transition: background 0.15s;
+  }
+  .list-item:hover { background: #F4F6F9; }
+  .list-item.selected {
+    background: rgba(27,58,107,0.06);
+    border-left: 3px solid var(--primary);
+    padding-left: 17px;
+  }
+  .list-item-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    margin-top: 4px;
+    flex-shrink: 0;
+    border: 2px solid white;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.2);
+  }
+  .list-item-body { flex: 1; min-width: 0; }
+  .list-item-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 2px;
+  }
+  .list-item-subtitle {
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  /* ── Popup ─────────────────────────────────────── */
+  .leaflet-popup-content-wrapper {
+    border-radius: 8px !important;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15) !important;
+  }
+  .leaflet-popup-content { margin: 0 !important; min-width: 220px; }
+  .popup {
+    padding: 0;
+  }
+  .popup-header {
+    background: var(--primary);
+    color: white;
+    padding: 10px 14px;
+    font-weight: 600;
+    font-size: 13px;
+    border-radius: 8px 8px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+  }
+  .popup-badge {
+    background: rgba(255,255,255,0.25);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .popup-body { padding: 12px 14px; }
+  .popup-row {
+    display: flex;
+    padding: 4px 0;
+    font-size: 12px;
+    border-bottom: 1px dashed #EEE;
+  }
+  .popup-row:last-child { border-bottom: none; }
+  .popup-row .k {
+    color: var(--muted);
+    width: 80px;
+    flex-shrink: 0;
+  }
+  .popup-row .v {
+    color: var(--text);
+    font-weight: 500;
+    flex: 1;
+    word-break: break-word;
+  }
+
+  /* ── Tooltip (hover) ───────────────────────────── */
+  .leaflet-tooltip.custom-tooltip {
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: 500;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  }
+  .leaflet-tooltip.custom-tooltip::before { display: none; }
+
+  /* ── Marker (icon) ─────────────────────────────── */
+  .custom-marker {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 3px solid white;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.15s;
+  }
+  .custom-marker:hover { transform: scale(1.25); }
+  .custom-marker.pulse {
+    animation: pulse 1.5s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
+    50% { transform: scale(1.2); box-shadow: 0 2px 12px rgba(0,0,0,0.5); }
+  }
+
+  /* ── Cluster badge (para pontos sobrepostos) ───── */
+  .cluster-badge {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    background: var(--primary);
+    color: white;
+    font-size: 10px;
+    font-weight: 700;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid white;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  }
+
+  /* ── Footer ────────────────────────────────────── */
+  .footer {
+    padding: 12px 32px;
+    background: var(--card);
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  /* ── Responsive ────────────────────────────────── */
+  @media (max-width: 900px) {
+    .main { flex-direction: column; padding: 16px; gap: 16px; }
+    .sidebar { width: 100%; max-height: 400px; }
+    .tabs { padding: 0 16px; }
+    .header { padding: 16px; }
+    .header-title h1 { font-size: 18px; }
+    .header-meta { text-align: left; }
+  }
+</style>
+</head>
+
+<body>
+
+<div class="header">
+  <div class="header-title">
+    <h1>Rezende Energia — Painel Operacional</h1>
+    <p>Mapa georreferenciado de veículos, embarcações e alojamentos</p>
+  </div>
+  <div class="header-meta">
+    <div><strong>Contratos:</strong> 435/2022 · 14634/2024 · 434/2025</div>
+    <div>Equatorial Pará · Santarém/PA</div>
+  </div>
+</div>
+
+<div class="tabs" id="tabs">
+  <div class="tab active" data-section="oeste-veiculos">
+    Veículos &amp; Embarcações — Oeste
+    <span class="tab-count" id="count-oeste-veiculos">0</span>
+  </div>
+  <div class="tab" data-section="nordeste-veiculos">
+    Veículos &amp; Embarcações — Nordeste
+    <span class="tab-count" id="count-nordeste-veiculos">0</span>
+  </div>
+  <div class="tab" data-section="alojamentos-oeste">
+    Alojamentos & Galpões — Oeste
+    <span class="tab-count" id="count-alojamentos-oeste">0</span>
+  </div>
+  <div class="tab" data-section="alojamentos-nordeste">
+    Alojamentos & Galpões — Nordeste
+    <span class="tab-count" id="count-alojamentos-nordeste">0</span>
+  </div>
+</div>
+
+<div class="main">
+  <div class="map-container">
+    <div id="map"></div>
+  </div>
+
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <h2 id="sidebar-title">Regional Oeste</h2>
+      <p id="sidebar-subtitle">Veículos e embarcações ativos</p>
+    </div>
+    <div class="search-box">
+      <input type="text" id="search" placeholder="🔍 Buscar por placa, equipe, responsável…" />
+    </div>
+    <div class="legend" id="legend"></div>
+    <div class="list" id="list"></div>
+  </div>
+</div>
+
+<div class="footer">
+  <div>Passe o mouse sobre um marcador para ver os detalhes · clique para fixar o painel</div>
+  <div>© Rezende Energia</div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════════════════════
+// DADOS
+// ══════════════════════════════════════════════════════════════════════════════
+const DATA = {
+  'oeste-veiculos': {
+    title: 'Regional Oeste — Veículos e Embarcações',
+    subtitle: 'Contratos 435/2022 e 434/2025',
+    center: [-2.8, -54.6],
+    zoom: 8,
+    categories: {
+      CAMINHAO:  { label: 'Caminhão Munck',          color: '#C0392B' },
+      MAQUINA:   { label: 'Máquina (PC/Retro/Trator)', color: '#8E44AD' },
+      PICKUP:    { label: 'Pickup (Coord./Sup.)',    color: '#F39C12' },
+      RESERVA:   { label: 'Caminhão Reserva',        color: '#16A085' },
+      FRETE:     { label: 'Frete (CTR-003)',         color: '#2980B9' },
+      APOIO:     { label: 'Veículo de Apoio',        color: '#7F8C8D' },
+      BALSA:     { label: 'Balsa',                   color: '#C0392B' },
+      NAVIO:     { label: 'Navio',                   color: '#1B3A6B' },
+      LANCHA:    { label: 'Lancha',                  color: '#16A085' },
+    },
+    points: [
+      // Veículos
+      { lat: -1.788253, lon: -53.484902, cat: 'CAMINHAO',  title: 'QTI4G99',        subtitle: 'Equipe PA-SAN-O052M', extras: { 'Responsável': 'Raimundo Ramos', 'Uso': 'Atribuído à equipe', 'Status': 'ATIVO' } },
+      { lat: -1.806865, lon: -53.479899, cat: 'CAMINHAO',  title: 'QTJ8A19',        subtitle: 'Equipe PA-SAN-O053M', extras: { 'Responsável': 'Alaison', 'Uso': 'Atribuído à equipe', 'Status': 'ATIVO' } },
+      { lat: -1.806865, lon: -53.479899, cat: 'CAMINHAO',  title: 'SHF6D51',        subtitle: 'Equipe PA-SAN-O048M', extras: { 'Responsável': 'Marcio Santos', 'Uso': 'Atribuído à equipe', 'Status': 'ATIVO' } },
+      { lat: -1.806865, lon: -53.479899, cat: 'CAMINHAO',  title: 'QTJ8B19',        subtitle: 'Equipe PA-SAN-O049M', extras: { 'Responsável': 'Jodson', 'Uso': 'Atribuído à equipe', 'Status': 'ATIVO' } },
+      { lat: -2.994839, lon: -54.539626, cat: 'MAQUINA',   title: 'RET01',          subtitle: 'Equipe RZ-RETRO-01',  extras: { 'Tipo': 'Retroescavadeira', 'Responsável': 'Julio', 'Status': 'ATIVO' } },
+      { lat: -2.986700, lon: -54.650683, cat: 'CAMINHAO',  title: 'TAU9G16',        subtitle: 'Equipe PA-SAN-O051M', extras: { 'Responsável': 'Rubnei', 'Uso': 'Atribuído à equipe', 'Status': 'ATIVO' } },
+      { lat: -2.986700, lon: -54.650683, cat: 'CAMINHAO',  title: 'SHK5E03',        subtitle: 'Equipe PA-SAN-O054M', extras: { 'Responsável': 'Gledson', 'Uso': 'Atribuído à equipe', 'Status': 'ATIVO' } },
+      { lat: -2.986700, lon: -54.650683, cat: 'PICKUP',    title: 'NRP2E59',        subtitle: 'Equipe RZ-PADRAO-30', extras: { 'Tipo': 'L200 Triton', 'Responsável': 'Romario', 'Status': 'ATIVO' } },
+      { lat: -2.986700, lon: -54.650683, cat: 'MAQUINA',   title: 'TRAT01',         subtitle: 'Equipe RZ-TRATOR-01', extras: { 'Tipo': 'Trator', 'Uso': 'Apoio', 'Status': 'ATIVO' } },
+      { lat: -2.986700, lon: -54.650683, cat: 'PICKUP',    title: 'QMZ1D40',        subtitle: 'Supervisão',          extras: { 'Tipo': 'Hilux CD', 'Uso': 'Apoio', 'Status': 'ATIVO' } },
+      { lat: -2.986700, lon: -54.650683, cat: 'PICKUP',    title: 'TGK5J76',        subtitle: 'Coordenação',         extras: { 'Tipo': 'Hilux CD', 'Uso': 'Apoio', 'Status': 'ATIVO' } },
+      { lat: -2.918700, lon: -54.452333, cat: 'CAMINHAO',  title: 'TAU9G17',        subtitle: 'Equipe PA-SAN-O055M', extras: { 'Responsável': 'Arlison Nestor', 'Status': 'ATIVO' } },
+      { lat: -3.333316, lon: -55.321735, cat: 'MAQUINA',   title: 'RET02',          subtitle: 'Equipe RZ-RETRO-02',  extras: { 'Tipo': 'Retroescavadeira', 'Responsável': 'Denison', 'Status': 'ATIVO' } },
+      { lat: -3.330917, lon: -55.321354, cat: 'MAQUINA',   title: 'TRAT02',         subtitle: 'Equipe RZ-TRATOR-02', extras: { 'Tipo': 'Trator', 'Uso': 'Apoio', 'Status': 'ATIVO' } },
+      { lat: -2.444210, lon: -54.713238, cat: 'RESERVA',   title: 'QSP1C72',        subtitle: 'Reserva Obra',        extras: { 'Responsável': 'Hélio', 'Uso': 'Rateada', 'Status': 'ATIVO' } },
+      { lat: -2.444210, lon: -54.713238, cat: 'RESERVA',   title: 'SKD2B40',        subtitle: 'Reserva Obra',        extras: { 'Responsável': 'Hélio', 'Uso': 'Rateada', 'Status': 'ATIVO' } },
+      { lat: -2.444210, lon: -54.713238, cat: 'APOIO',     title: 'PVA2J86',        subtitle: 'Logística',           extras: { 'Tipo': 'Saveiro', 'Status': 'ATIVO' } },
+      { lat: -2.444210, lon: -54.713238, cat: 'PICKUP',    title: 'OLI7180',        subtitle: 'Supervisão',          extras: { 'Tipo': 'L200 Triton', 'Status': 'ATIVO' } },
+      { lat: -2.444210, lon: -54.713238, cat: 'APOIO',     title: 'SWC9B15',        subtitle: 'Apoio',               extras: { 'Tipo': 'Saveiro', 'Status': 'ATIVO' } },
+      { lat: -2.444210, lon: -54.713238, cat: 'APOIO',     title: 'TDT3G89',        subtitle: 'Apoio',               extras: { 'Tipo': 'Strada', 'Status': 'ATIVO' } },
+      { lat: -2.444210, lon: -54.713238, cat: 'APOIO',     title: 'TDT3H12',        subtitle: 'Apoio Operacional',   extras: { 'Tipo': 'Strada', 'Status': 'ATIVO' } },
+      { lat: -2.444210, lon: -54.713238, cat: 'APOIO',     title: 'TDT3H26',        subtitle: 'Apoio Operacional',   extras: { 'Tipo': 'Strada', 'Status': 'ATIVO' } },
+      { lat: -2.444210, lon: -54.713238, cat: 'APOIO',     title: 'PHL2H91',        subtitle: 'Logística',           extras: { 'Tipo': 'S10', 'Status': 'ATIVO' } },
+      { lat: -2.444210, lon: -54.713238, cat: 'APOIO',     title: 'RAQ3C70',        subtitle: 'SESMT',               extras: { 'Tipo': 'Gol', 'Status': 'ATIVO' } },
+      { lat: -2.444210, lon: -54.713238, cat: 'APOIO',     title: 'RAQ7I60',        subtitle: 'Suprimentos',         extras: { 'Tipo': 'Gol', 'Status': 'ATIVO' } },
+      { lat: -2.444210, lon: -54.713238, cat: 'APOIO',     title: 'QCP2644',        subtitle: 'Diretoria',           extras: { 'Tipo': 'Ranger', 'Status': 'ATIVO' } },
+      { lat: -2.445722, lon: -54.716472, cat: 'FRETE',     title: 'NFW2H74',        subtitle: 'Frete CT-e',          extras: { 'Contrato': '434/2025', 'Uso': 'Transporte cargas', 'Status': 'ATIVO' } },
+      { lat: -2.445722, lon: -54.716472, cat: 'FRETE',     title: 'JJB4E57',        subtitle: 'Frete CT-e',          extras: { 'Contrato': '434/2025', 'Uso': 'Transporte cargas', 'Status': 'ATIVO' } },
+      { lat: -2.445722, lon: -54.716472, cat: 'FRETE',     title: 'OFP1B78',        subtitle: 'Frete CT-e',          extras: { 'Contrato': '434/2025', 'Uso': 'Transporte cargas', 'Status': 'ATIVO' } },
+      { lat: -2.445722, lon: -54.716472, cat: 'APOIO',     title: 'PHL8286',        subtitle: 'Apoio Administrativo', extras: { 'Tipo': 'Strada', 'Status': 'ATIVO' } },
+      { lat: -1.796954, lon: -53.481342, cat: 'PICKUP',    title: 'PVR2E12',        subtitle: 'Coordenação',         extras: { 'Tipo': 'Hilux CD', 'Status': 'ATIVO' } },
+      { lat: -3.136367, lon: -54.446417, cat: 'MAQUINA',   title: 'PC01',           subtitle: 'Equipe RZ-PC-01',     extras: { 'Tipo': 'Escavadeira Hidráulica', 'Responsável': 'Ricardo', 'Status': 'ATIVO' } },
+      { lat: -4.212067, lon: -56.039467, cat: 'MAQUINA',   title: 'PC02',           subtitle: 'Equipe RZ-PC-02',     extras: { 'Tipo': 'Escavadeira Hidráulica', 'Responsável': 'Marcio Saboia', 'Status': 'ATIVO' } },
+      { lat: -4.212067, lon: -56.039467, cat: 'PICKUP',    title: 'QCZ8I85',        subtitle: 'Gerência',            extras: { 'Tipo': 'Hilux CD', 'Status': 'ATIVO' } },
+      { lat: -1.780277, lon: -53.500929, cat: 'MAQUINA',   title: 'RET04',          subtitle: 'Equipe RZ-RETRO-03',  extras: { 'Tipo': 'Retroescavadeira', 'Responsável': 'Marcio Saboia', 'Status': 'ATIVO' } },
+      { lat: -1.782486, lon: -53.498800, cat: 'MAQUINA',   title: 'TRAT03',         subtitle: 'Equipe RZ-TRATOR-03', extras: { 'Tipo': 'Trator', 'Uso': 'Apoio', 'Status': 'ATIVO' } },
+      { lat: -2.445722, lon: -54.716472, cat: 'CAMINHAO',   title: 'FQD9A37',       subtitle: 'Frete CT-e',          extras: { 'Contrato': '434/2025', 'Uso': 'Transporte cargas', 'Status': 'ATIVO' } },
+      // Embarcações Oeste
+      { lat: -3.330060, lon: -55.321221, cat: 'BALSA',     title: 'Balsa Tapajós',        subtitle: 'EMB-001 — ALUGADA', extras: { 'Uso': 'Transporte + alojamento', 'Região': 'Rio Arapiuns', 'Status': 'ATIVA' } },
+      { lat: -3.330060, lon: -55.321221, cat: 'LANCHA',    title: 'Lancha Apacê',         subtitle: 'LANCHA01 — PRÓPRIA',  extras: { 'Uso': 'Transporte rápido ribeirinho', 'Status': 'ATIVA' } },
+    ],
+  },
+
+  'nordeste-veiculos': {
+    title: 'Regional Nordeste — Veículos e Embarcações',
+    subtitle: 'Contrato 14634/2024 · Barcarena/PA',
+    center: [-1.42, -48.58],
+    zoom: 13,
+    categories: {
+      PICKUP:    { label: 'Pickup (Coordenação)',    color: '#F39C12' },
+      APOIO:     { label: 'Veículo de Apoio',        color: '#7F8C8D' },
+      LANCHA:    { label: 'Lancha ribeirinha',       color: '#16A085' },
+      BALSA:     {label: 'Balsa Almoxarifado',       color: '#F7931E' },
+    },
+    points: [
+      // Veículos Nordeste
+      { lat: -1.507065, lon: -48.627903, cat: 'APOIO',   title: 'TLG6D05', subtitle: 'Logística',            extras: { 'Tipo': 'Strada', 'Base': 'Barcarena', 'Status': 'ATIVO' } },
+      { lat: -1.507065, lon: -48.627903, cat: 'APOIO',   title: 'TDT0I33', subtitle: 'Apoio Administrativo', extras: { 'Tipo': 'Strada', 'Base': 'Barcarena', 'Status': 'ATIVO' } },
+      { lat: -1.507065, lon: -48.627903, cat: 'PICKUP',  title: 'TEK2G01', subtitle: 'Coordenação',          extras: { 'Tipo': 'Strada', 'Base': 'Barcarena', 'Status': 'ATIVO' } },
+      // Embarcações Nordeste
+      { lat: -1.437361, lon: -48.571297, cat: 'LANCHA',  title: 'Lancha Rezende',    subtitle: 'LANCHA02',           extras: { 'Uso': 'Transporte rápido ribeirinho', 'Status': 'ATIVA' } },
+      { lat: -1.433585, lon: -48.578185, cat: 'LANCHA',  title: 'Lancha Barcarena',  subtitle: 'LANCHA03',           extras: { 'Uso': 'Transporte rápido ribeirinho', 'Status': 'ATIVA' } },
+      { lat: -1.406525, lon: -48.580256, cat: 'LANCHA',  title: 'Lancha Barcarena',  subtitle: 'LANCHA04',           extras: { 'Uso': 'Transporte rápido ribeirinho', 'Status': 'ATIVA' } },
+      { lat: -1.412874, lon: -48.585234, cat: 'LANCHA',  title: 'Lancha Barcarena',  subtitle: 'LANCHA05',           extras: { 'Uso': 'Transporte rápido ribeirinho', 'Status': 'ATIVA' } },
+      { lat: -1.433049, lon: -48.580868, cat: 'LANCHA',  title: 'Lancha Barcarena',  subtitle: 'LANCHA06',           extras: { 'Uso': 'Transporte rápido ribeirinho', 'Status': 'ATIVA' } },
+      { lat: -1.406933, lon: -48.579666, cat: 'LANCHA',  title: 'Lancha Barcarena',  subtitle: 'LANCHA07',           extras: { 'Uso': 'Transporte rápido ribeirinho', 'Status': 'ATIVA' } },
+      { lat: -1.409678, lon: -48.581726, cat: 'LANCHA',  title: 'Lancha Barcarena',  subtitle: 'LANCHA08',           extras: { 'Uso': 'Transporte rápido ribeirinho', 'Status': 'ATIVA' } },
+      { lat: -1.422785, lon: -48.591252, cat: 'BALSA',  title: 'Balsa Almoxarifado',  subtitle: 'BALSA01',           extras: { 'Uso': 'Transporte materiais elétricos', 'Status': 'ATIVA' } },
+    ],
+  },
+
+  'alojamentos-oeste': {
+    title: 'Alojamentos — Regional Oeste',
+    subtitle: '17 pontos ativos (Santarém, Mojuí, Prainha, Lago Grande, Itaituba)',
+    center: [-2.7, -54.5],
+    zoom: 8,
+    categories: {
+      TERRESTRE: { label: 'Alojamento Terrestre', color: '#C0392B' },
+      FLUTUANTE: { label: 'Alojamento Flutuante', color: '#2980B9' },
+    },
+    points: [
+      { lat: -2.27008333, lon: -55.15111111, cat: 'TERRESTRE', title: 'ALO-001 — Vila Socorro',           subtitle: 'Lago Grande',              extras: { 'Equipe': 'RZ-PADRAO-30', 'Status': 'ATIVO' } },
+      { lat: -3.33014604, lon: -55.32143539, cat: 'FLUTUANTE', title: 'ALO-002 — Balsa Tapajós',          subtitle: 'Alojamento Flutuante',     extras: { 'Equipes': 'RZ-OBRA-34, RZ-OBRA-17, RZ-PC-02', 'Status': 'ATIVO' } },
+      { lat: -1.80700000, lon: -53.47997222, cat: 'TERRESTRE', title: 'ALO-003 — Prainha',                subtitle: 'Base Terrestre',           extras: { 'Equipes': 'PA-SAN-O049M, O053M, RZ-RETRO-01', 'Status': 'ATIVO' } },
+      { lat: -2.96147222, lon: -54.55494444, cat: 'TERRESTRE', title: 'ALO-004 — Guariba',                subtitle: 'Mojuí (Babassu)',          extras: { 'Equipes': 'PA-SAN-O054M, O051M', 'Status': 'ATIVO' } },
+      { lat: -2.95625000, lon: -54.54577778, cat: 'TERRESTRE', title: 'ALO-005 — Balneário',              subtitle: 'Mojuí (Puraquê)',          extras: { 'Equipe': 'RZ-PC-01', 'Status': 'ATIVO' } },
+      { lat: -3.00155556, lon: -54.46480556, cat: 'TERRESTRE', title: 'ALO-006 — Xavier',                 subtitle: 'Mojuí (Antonio José)',     extras: { 'Equipe': 'RZ-OBRA-37', 'Status': 'ATIVO' } },
+      { lat: -3.01372222, lon: -54.53825000, cat: 'TERRESTRE', title: 'ALO-007 — Vista Alegre',           subtitle: 'Base Terrestre',           extras: { 'Equipe': 'PA-SAN-O055M', 'Status': 'ATIVO' } },
+      { lat: -1.80257225, lon: -53.48078073, cat: 'TERRESTRE', title: 'ALO-009 — Prainha',                subtitle: 'Base Terrestre',           extras: { 'Equipes': 'PA-SAN-O048M, O052M', 'Status': 'ATIVO' } },
+      { lat: -3.00124711, lon: -54.46495480, cat: 'TERRESTRE', title: 'ALO-010 — Xavier',                 subtitle: 'Mojuí (Maria do Carmo)',   extras: { 'Equipe': 'PA-SAN-O050M', 'Status': 'ATIVO' } },
+      { lat: -4.2485707,  lon: -56.01140100, cat: 'TERRESTRE', title: 'ALO-012 — Itaituba',               subtitle: 'Base Terrestre',           extras: { 'Equipe': 'PC02', 'Status': 'ATIVO' } },
+      { lat: -2.445722,   lon: -54.71647200 , cat: 'TERRESTRE', title: 'ALO-013 — Santarém',               subtitle: 'Base Terrestre',           extras: { 'Equipe': 'Diretoria', 'Status': 'ATIVO' } },
+      { lat: -2.45022676, lon: -54.71404904, cat: 'TERRESTRE', title: 'ALO-014 — Santarém (Programação)', subtitle: 'Base Administrativa',      extras: { 'Equipe': 'Programação', 'Status': 'ATIVO' } },
+      { lat: -2.44588472, lon: -54.71642, cat: 'TERRESTRE', title: 'ALO-015 — Galpão Almox. Elétrico', subtitle: 'Base Logística',           extras: { 'Equipe': 'Almoxarifado Elétrico', 'Status': 'ATIVO' } },
+      { lat: -2.44419770, lon: -54.71322947, cat: 'TERRESTRE', title: 'ALO-016 — Escritório Santarém',    subtitle: 'Sede Administrativa',      extras: { 'Equipes': 'Escritório, Galpão EPI/EPC, Mecânica', 'Status': 'ATIVO' } },
+      { lat: -2.44419770, lon: -54.71322947, cat: 'TERRESTRE', title: 'ALO-017 — Gerência SESMT',         subtitle: 'Base Administrativa',      extras: { 'Equipe': 'Gerência SESMT', 'Status': 'ATIVO' } },
+      { lat: -3.334060,   lon: -55.32122, cat: 'TERRESTRE', title: 'ALO-018 — Casa Tapajós',           subtitle: 'Base Terrestre',           extras: { 'Equipe': 'RZ-OBRA-41', 'Status': 'ATIVO' } },
+    ],
+  },
+
+  'alojamentos-nordeste': {
+    title: 'Alojamentos — Regional Nordeste',
+    subtitle: '1 alojamento flutuante (Barcarena/PA) que atende as 7 equipes ribeirinhas',
+    center: [-1.452, -48.563],
+    zoom: 14,
+    categories: {
+      TERRESTRE: { label: 'Alojamento Terrestre', color: '#C0392B' },
+      FLUTUANTE: { label: 'Alojamento Flutuante', color: '#2980B9' },
+    },
+    points: [
+      { lat: -1.45251791, lon: -48.56331626, cat: 'FLUTUANTE', title: 'ALO-008 — Navio São Domingos', subtitle: 'Alojamento Flutuante', extras: { 'Equipes': 'PA-BAR-O012M, O013M, O015M, O016M, Z001M, RZ-OBRA-39, RZ-OBRA-40', 'Localização': 'Barcarena/PA', 'Status': 'ATIVO' } },
+      { lat: -1.52702269, lon: -48.69062818, cat: 'TERRESTRE', title: 'ALO-011 — Vila dos Cabanos',       subtitle: 'Base Terrestre',           extras: { 'Equipe': 'Alojamento Coordenação Nordeste', 'Status': 'ATIVO' } },
+      { lat: -1.50701387, lon: -48.62842246, cat: 'TERRESTRE', title: 'ALO-019 — Barcarena',       subtitle: 'Base Terrestre',           extras: { 'Equipe': 'Administrativo Nordeste', 'Status': 'ATIVO' } },
+    ],
+  },
+};
+
+// ══════════════════════════════════════════════════════════════════════════════
+// MAP SETUP
+// ══════════════════════════════════════════════════════════════════════════════
+const map = L.map('map', { zoomControl: true, scrollWheelZoom: true }).setView([-2.8, -54.6], 8);
+
+// Tile layer — CartoDB Voyager (visual limpo, boa base geográfica)
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+  attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · © <a href="https://carto.com/attributions">CARTO</a>',
+  subdomains: 'abcd',
+  maxZoom: 20,
+}).addTo(map);
+
+let markerLayer = L.layerGroup().addTo(map);
+let markersRefs = []; // guarda referência: {marker, point, index}
+let currentSection = 'oeste-veiculos';
+
+// ══════════════════════════════════════════════════════════════════════════════
+// FUNCIONALIDADES
+// ══════════════════════════════════════════════════════════════════════════════
+
+// Aplica pequeno deslocamento em pontos com mesmas coordenadas
+function jitterPoints(points) {
+  const grouped = {};
+  points.forEach((pt, i) => {
+    const key = pt.lat.toFixed(4) + ',' + pt.lon.toFixed(4);
+    if (!grouped[key]) grouped[key] = [];
+    grouped[key].push({ pt, i });
+  });
+  const result = new Array(points.length);
+  Object.values(grouped).forEach(group => {
+    if (group.length === 1) {
+      result[group[0].i] = { ...group[0].pt, _cluster: 0 };
+    } else {
+      const n = group.length;
+      group.forEach((g, idx) => {
+        const angle = (2 * Math.PI * idx) / n;
+        const radius = 0.00025 * Math.max(1, Math.log2(n + 1));
+        result[g.i] = {
+          ...g.pt,
+          lat: g.pt.lat + radius * Math.cos(angle),
+          lon: g.pt.lon + radius * Math.sin(angle),
+          _cluster: n,
+        };
+      });
+    }
+  });
+  return result;
+}
+
+function createIcon(color, cluster = 0) {
+  const badge = cluster > 1 ? `<div class="cluster-badge">${cluster}</div>` : '';
+  return L.divIcon({
+    className: 'custom-marker-wrapper',
+    html: `<div class="custom-marker" style="background:${color}">${badge}</div>`,
+    iconSize: [22, 22],
+    iconAnchor: [11, 11],
+  });
+}
+
+function buildPopupHTML(point, catInfo) {
+  let rows = '';
+  if (point.subtitle) rows += `<div class="popup-row"><span class="k">Vínculo</span><span class="v">${point.subtitle}</span></div>`;
+  if (point.extras) {
+    Object.entries(point.extras).forEach(([k, v]) => {
+      rows += `<div class="popup-row"><span class="k">${k}</span><span class="v">${v}</span></div>`;
+    });
+  }
+  rows += `<div class="popup-row"><span class="k">Coord.</span><span class="v">${point.lat.toFixed(5)}, ${point.lon.toFixed(5)}</span></div>`;
+  return `
+    <div class="popup">
+      <div class="popup-header">
+        <span>${point.title}</span>
+        <span class="popup-badge">${catInfo.label}</span>
+      </div>
+      <div class="popup-body">${rows}</div>
+    </div>
+  `;
+}
+
+function renderSection(sectionKey) {
+  currentSection = sectionKey;
+  const section = DATA[sectionKey];
+
+  // Header do sidebar
+  document.getElementById('sidebar-title').textContent = section.title;
+  document.getElementById('sidebar-subtitle').textContent = section.subtitle;
+
+  // Limpa mapa e refs
+  markerLayer.clearLayers();
+  markersRefs = [];
+
+  // Recenter
+  map.setView(section.center, section.zoom);
+
+  // Aplica jitter e cria markers
+  const jittered = jitterPoints(section.points);
+  jittered.forEach((point, i) => {
+    const catInfo = section.categories[point.cat];
+    if (!catInfo) return;
+    const icon = createIcon(catInfo.color, point._cluster);
+    const marker = L.marker([point.lat, point.lon], { icon }).addTo(markerLayer);
+    marker.bindTooltip(`<strong>${point.title}</strong><br>${point.subtitle}`, {
+      className: 'custom-tooltip',
+      direction: 'top',
+      offset: [0, -12],
+    });
+    marker.bindPopup(buildPopupHTML(point, catInfo), { closeButton: true, maxWidth: 320 });
+    markersRefs.push({ marker, point, index: i });
+  });
+
+  // Legend
+  const legendEl = document.getElementById('legend');
+  legendEl.innerHTML = '<h3>Legenda</h3>' +
+    Object.values(section.categories).map(c =>
+      `<div class="legend-item">
+        <span class="legend-dot" style="background:${c.color}"></span>
+        <span>${c.label}</span>
+      </div>`
+    ).join('');
+
+  // List
+  renderList('');
+
+  // Tab counts
+  document.getElementById('count-' + sectionKey).textContent = section.points.length;
+}
+
+function renderList(filter) {
+  const listEl = document.getElementById('list');
+  const section = DATA[currentSection];
+  const q = (filter || '').toLowerCase().trim();
+
+  const items = markersRefs.filter(({ point }) => {
+    if (!q) return true;
+    const haystack = [
+      point.title, point.subtitle,
+      ...(point.extras ? Object.values(point.extras) : []),
+      point.cat,
+    ].join(' ').toLowerCase();
+    return haystack.includes(q);
+  });
+
+  if (items.length === 0) {
+    listEl.innerHTML = '<div style="padding:20px;color:var(--muted);text-align:center;font-size:13px;">Nenhum resultado encontrado.</div>';
+    return;
+  }
+
+  listEl.innerHTML = items.map(({ point, index }) => {
+    const color = section.categories[point.cat].color;
+    return `
+      <div class="list-item" data-index="${index}">
+        <span class="list-item-dot" style="background:${color}"></span>
+        <div class="list-item-body">
+          <div class="list-item-title">${point.title}</div>
+          <div class="list-item-subtitle">${point.subtitle}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // click handlers
+  listEl.querySelectorAll('.list-item').forEach(el => {
+    el.addEventListener('click', () => {
+      const idx = parseInt(el.dataset.index);
+      const ref = markersRefs.find(r => r.index === idx);
+      if (ref) {
+        map.setView([ref.point.lat, ref.point.lon], Math.max(map.getZoom(), 14), { animate: true });
+        ref.marker.openPopup();
+        // marca item selecionado
+        listEl.querySelectorAll('.list-item').forEach(e => e.classList.remove('selected'));
+        el.classList.add('selected');
+      }
+    });
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// EVENT LISTENERS
+// ══════════════════════════════════════════════════════════════════════════════
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    renderSection(tab.dataset.section);
+    document.getElementById('search').value = '';
+  });
+});
+
+document.getElementById('search').addEventListener('input', (e) => {
+  renderList(e.target.value);
+});
+
+// Inicializa
+Object.keys(DATA).forEach(k => {
+  document.getElementById('count-' + k).textContent = DATA[k].points.length;
+});
+renderSection('oeste-veiculos');
+</script>
+
+</body>
+</html>
